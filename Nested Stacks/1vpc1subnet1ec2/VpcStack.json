@@ -1,0 +1,102 @@
+{
+  "AWSTemplateFormatVersion" : "2010-09-09",
+  "Description" : "VPC nested stack",
+
+  "Parameters" : {
+    "VpcCIDR" : {
+      "Description" : "Select a CIDR block for your VPC",
+      "Type" : "String",
+      "AllowedPattern" : "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})",
+      "ConstraintDescription" : "must be a valid IP CIDR range of the form x.x.x.x/x."
+    },
+
+    "PublicSubnetCIDR" : {
+      "Description" : "Select a CIDR block for your Subnet",
+      "Type" : "String",
+      "AllowedPattern" : "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})",
+      "ConstraintDescription" : "must be a valid IP CIDR range of the form x.x.x.x/x."
+    }
+  },
+  
+  "Resources" : {
+  
+    "VPC" : {
+      "Type" : "AWS::EC2::VPC",
+      "Properties" : {
+        "CidrBlock" : { "Ref" : "VpcCIDR" },
+        "EnableDnsSupport" : true,
+        "EnableDnsHostnames" : true,
+        "Tags" : [ {"Key" : "Name", "Value" : { "Ref" : "AWS::StackName"} },
+                   {"Key" : "Network", "Value" : "Public" } ]
+      }
+    },
+
+    "PublicSubnet" : {
+      "Type" : "AWS::EC2::Subnet",
+      "Properties" : {
+        "VpcId" : { "Ref" : "VPC" },
+        "CidrBlock" : { "Ref" : "PublicSubnetCIDR" },
+        "Tags" : [ {"Key" : "Name", "Value" : { "Ref" : "AWS::StackName"} },
+                   {"Key" : "Network", "Value" : "Public" } ]
+      }
+    },
+  
+    "InternetGateway" : {
+      "Type" : "AWS::EC2::InternetGateway",
+      "Properties" : {
+        "Tags" : [ {"Key" : "Name", "Value" : { "Ref" : "AWS::StackName"} },
+                   {"Key" : "Network", "Value" : "Public" } ]
+      }
+    },
+
+    "AttachGateway" : {
+       "Type" : "AWS::EC2::VPCGatewayAttachment",
+      "DependsOn" : "InternetGateway",
+       "Properties" : {
+         "VpcId" : { "Ref" : "VPC" },
+         "InternetGatewayId" : { "Ref" : "InternetGateway" }
+       }
+    },
+
+    "PublicRouteTable" : {
+      "Type" : "AWS::EC2::RouteTable",
+      "Properties" : {
+        "VpcId" : {"Ref" : "VPC"},
+        "Tags" : [ {"Key" : "Name", "Value" : { "Ref" : "AWS::StackName"} },
+                   {"Key" : "Network", "Value" : "Public" } ]
+      }
+    },
+
+    "PublicRoute" : {
+      "Type" : "AWS::EC2::Route",
+      "DependsOn" : "AttachGateway",
+      "Properties" : {
+        "RouteTableId" : { "Ref" : "PublicRouteTable" },
+        "DestinationCidrBlock" : "0.0.0.0/0",
+        "GatewayId" : { "Ref" : "InternetGateway" }
+      }
+    },
+
+    "PublicSubnetRouteTableAssociation" : {
+      "Type" : "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties" : {
+        "SubnetId" : { "Ref" : "PublicSubnet" },
+        "RouteTableId" : { "Ref" : "PublicRouteTable" }
+      }
+    }
+  
+  },
+
+  "Outputs" : {
+  
+    "VpcID" : {
+      "Description" : "VPC ID of newly created VPC",
+      "Value" : {"Ref" : "VPC"}
+    },
+
+    "PublicSubnetID" :  {
+      "Description" : "Public subnet ID",
+      "Value" : {"Ref" : "PublicSubnet"}
+    }
+  }
+}
